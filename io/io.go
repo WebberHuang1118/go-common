@@ -95,6 +95,7 @@ func Copy(src *os.File, dst *os.File, chunkSize int) error {
 				errChan <- err
 				continue
 			}
+			wg.Add(1)
 			objs <- Content{offset: uint64(i * chunkSize), buf: buf}
 		}
 	}
@@ -137,7 +138,7 @@ func Copy(src *os.File, dst *os.File, chunkSize int) error {
 		chunkNums++
 	}
 	var wg sync.WaitGroup
-	wg.Add(chunkNums)
+	wg.Add(1)
 
 	for i := 0; i < producerNum; i++ {
 		go ioProducer(i, src, chunkNums, chunkSize, ioQ, errChan)
@@ -154,9 +155,11 @@ func Copy(src *os.File, dst *os.File, chunkSize int) error {
 
 	select {
 	case <-completedChan:
+		wg.Done()
 		break
 	case errVal := <-errChan:
 		ioError = errVal
+		wg.Done()
 		break
 	}
 
